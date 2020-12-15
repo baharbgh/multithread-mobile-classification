@@ -131,6 +131,31 @@ void store_data(fstream *file_stream,vector<vector<float>> *data){
 
 }
 
+void* tNormalize (void* tid){
+    long threadID = (long) tid;
+    // tikke ye vazifamoon ro joda mikonim.
+//    vector<vector<float>> segment = glob_train_data.at(threadID);
+//    int n_columns = segment.at(0).size() - 1; // farz bar ineke segment sotoon e target ham dare
+    int n_columns = glob_train_data.at(0).at(0).size()-1;
+    int n_rows = glob_train_data.at(threadID).size();
+    // normalize esh mikonim
+    for (int i = 0; i < n_rows; ++i) {
+        for (int j = 0; j < n_columns; ++j) {
+            float min   = combined_min[j];
+            float max   = combined_max[j];
+            float value = glob_train_data.at(threadID).at(i).at(j);
+            glob_train_data.at(threadID).at(i).at(j) = (value - min) / (max - min);
+        }
+    }
+
+    // jaygozin esh mikonim
+//    pthread_mutex_lock(&my_mutex); // lock()
+//    glob_train_data.at(threadID) = segment;
+//    pthread_mutex_unlock(&my_mutex); // unlock()
+//    cout << "thread e " << threadID << " be andaze ye " << n_rows << " normalize kard." << endl;
+    pthread_exit((void*) threadID ); // chiziam ke return lazem nadarim
+}
+
 int main(int argc, char *argv[]) {
     char * datafile;
     datafile = argv[1];
@@ -169,6 +194,60 @@ int main(int argc, char *argv[]) {
         pthread_join(threads[i], NULL);
     }
     auto end1 = std::chrono::high_resolution_clock::now();
+    
+    //    cout<<"PARALLEL:\nall data reading and storing time: "<<(end1-begin1).count()<<endl;
+//    big_printak(glob_train_data);
+//    cout<<"\n";
+//    printak(weight_data);
+
+    auto begin2 = std::chrono::high_resolution_clock::now();
+    const int n_columns = glob_train_data.at(0).at(0).size();
+
+    combined_min = (float*)malloc(n_columns * sizeof(float));
+    combined_max = (float*)malloc(n_columns * sizeof(float));
+    for (int i = 0; i < n_columns; ++i) {
+        combined_min[i] = 100000;
+        combined_max[i] = 0;
+
+        for (int j = 0; j < thread_num; ++j) {
+            if (glob_max.at(j).at(i) > combined_max[i]){
+                combined_max[i] = glob_max.at(j).at(i);
+            }
+            if (glob_min.at(j).at(i) < combined_min[i]){
+                combined_min[i] = glob_min.at(j).at(i);
+            }
+        }
+    }
+
+//    auto oonVasat = std::chrono::high_resolution_clock::now();
+
+    // multi-threading
+    return_code = 0;
+    void* status;
+
+    for(long tid = 0; tid < thread_num; tid++) {
+        return_code = pthread_create(&threads[tid], NULL, tNormalize, (void*)tid);
+        if (return_code) {
+            printf("ERROR; return code from pthread_create() is %d\n", return_code);
+            exit(-1);
+        }
+    }
+
+    for(long tid = 0; tid < thread_num; tid++)
+    {
+        return_code = pthread_join(threads[tid], &status);
+        if (return_code)
+        {
+            printf("ERROR; return code from pthread_join() is %d\n", return_code);
+            exit(-1);
+        }
+        //printf("Main: completed join with thread %ld having a status of %ld\n", tid, (long)status);
+    }
+
+
+    auto end2 = std::chrono::high_resolution_clock::now();
+//    cout << "normalizing: " << (end2 - begin2).count()<< endl;
+
     
     
     return 0;
