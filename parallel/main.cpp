@@ -156,6 +156,72 @@ void* tNormalize (void* tid){
     pthread_exit((void*) threadID ); // chiziam ke return lazem nadarim
 }
 
+int maximum(float arr[], int size) {
+    int max = 0;
+    for (int i = 0; i < size; i++)
+    {
+
+        max = (arr[max] < arr[i])? i : max;
+    }
+    return max;
+}
+
+void* classificate_and_compute_num_of_well_estimated_prices(void* arg)
+{
+    struct thread_struct trans_data = *(struct thread_struct*) arg;
+    float each_price = 0;
+    auto num_of_classes = weight_data.size();
+    float temp[num_of_classes];
+
+    int size = trans_data.train.size();
+    int col = trans_data.train.at(0).size();
+
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < num_of_classes; j++)
+        {
+            for (int k = 0; k < col - 1; k++)
+            {
+                each_price += weight_data.at(j).at(k) * trans_data.train.at(i).at(k);
+            }
+            temp[j] = each_price + weight_data.at(j).at(weight_data.at(j).size() - 1);
+            each_price = 0;
+        }
+        trans_data.price_classes.push_back(maximum(temp, num_of_classes));
+        for (int i = 0; i < num_of_classes; i++)
+        {
+            temp[i] = 0;
+        }
+    }
+    // MAYBE LOCKING NEEDED ************************************
+    int count = thread_num - 1;
+    while (count != -1) {
+        if (trans_data.tid == count) {
+            td[count].price_classes = trans_data.price_classes;
+            break;
+        }
+        count--;
+    }
+
+    for (size_t i = 0; i < trans_data.price_classes.size(); i++)
+    {
+        trans_data.num_of_same_amounts +=
+                (trans_data.price_classes.at(i) == trans_data.train.at(i).at(col-1))? 1 : 0;
+    }
+    pthread_mutex_lock (&my_mutex);
+    well_estimated_classes += trans_data.num_of_same_amounts;
+    pthread_mutex_unlock (&my_mutex);
+    pthread_exit(NULL);
+
+    pthread_exit((void*)0);
+}
+
+
+float compute_accuracy(int num_of_total_records)
+{
+    return well_estimated_classes / num_of_total_records;
+}
+
 int main(int argc, char *argv[]) {
     char * datafile;
     datafile = argv[1];
@@ -248,7 +314,35 @@ int main(int argc, char *argv[]) {
     auto end2 = std::chrono::high_resolution_clock::now();
 //    cout << "normalizing: " << (end2 - begin2).count()<< endl;
 
-    
+    auto begin3 = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < thread_num; i++)
+    {
+        td[i].tid = i;
+        td[i].num_of_same_amounts = 0;
+        td[i].train = glob_train_data.at(i);
+    }
+
+    pthread_mutex_init(&my_mutex, NULL);
+
+    status = NULL;
+    for (long i = 0; i < thread_num; i++) {
+        pthread_create(&threads[i], NULL, classificate_and_compute_num_of_well_estimated_prices, &(td[i]));
+    }
+
+    for (long i = 0; i < thread_num; i++)
+        pthread_join(threads[i], &status);
+
+    auto end3 = std::chrono::high_resolution_clock::now();
+    //cout<<"classification & comute well_estimated_num time: "<<(end3-begin3).count()<<endl;
+
+
+    float accuracy = compute_accuracy(size);
+
+    float temp = int(accuracy*100);
+    accuracy = temp/100;
+    cout << "\naccuracy is: " << accuracy << "%\n";
+
+    pthread_mutex_destroy(&my_mutex);
     
     return 0;
 }
