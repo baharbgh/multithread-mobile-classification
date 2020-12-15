@@ -77,7 +77,21 @@ void original_store_data(fstream *file_stream,vector<vector<float>> *data){
 
 }
 
-using namespace std;
+void normalize (vector<vector<float>>* df){
+    int n_columns = df->at(0).size() - 1;
+
+    for (int i = 0; i < df->size(); ++i) {
+
+        for (int j = 0; j < n_columns; ++j) {
+            float min   = col_min.at(j);
+            float max   = col_max.at(j);
+            float value = df->at(i).at(j);
+
+            df->at(i).at(j) = (value - min) / (max - min) ;
+        }
+
+    }
+}
 
 int main(int argc, char *argv[]) {
     char * datafile;
@@ -106,6 +120,11 @@ int main(int argc, char *argv[]) {
     //cout<<"time spent to store weights.csv:"<< (end2 - begin2).count()<<"\n";
     auto end0 = std::chrono::high_resolution_clock::now();
     cout<<"SERIAL:\nall data reading and storing time: "<<(end0-begin0).count()<<endl;
+    
+    auto begin3 = std::chrono::high_resolution_clock::now();
+    normalize(&train_data);
+    auto end3 = std::chrono::high_resolution_clock::now();
+    cout<<"time spent to normalize train data:"<< (end3 - begin3).count()<<"\n";
 
     
     return 0;
