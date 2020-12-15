@@ -21,6 +21,7 @@ struct store_data_args{
 };
 
 // globar vars
+int size = 0;
 float* combined_min;
 float* combined_max;
 vector<vector<vector<float>>> glob_train_data;
@@ -45,10 +46,10 @@ void printak(vector<vector<float>> in){
 }
 
 void big_printak(vector<vector<vector<float>>> a){
-    for(int i; i<a.size(); i++){
-        printak(a[i]);
-        cout<<endl;
-    }
+for(int i; i<a.size(); i++){
+printak(a[i]);
+cout<<endl;
+}
 }
 
 void *thread_store_data(void* args){
@@ -72,24 +73,23 @@ void *thread_store_data(void* args){
     vector<float> this_min;
     vector<float> this_max;
 
-    while (filestream>>line){
+    while (filestream>>line) {
         stringstream s(line);
         vector<float> vtmp;
 
-        if(line_count>0) {
+        if (line_count > 0) {
             index = 0;
             while (getline(s, word, ',')) {
                 vtmp.push_back(stof(word));
-                if(line_count == 1){
+                if (line_count == 1) {
                     this_max.push_back(stof(word));
                     this_min.push_back(stof(word));
-                }
-                else{
-                    if(stof(word) > this_max[index]){
+                } else {
+                    if (stof(word) > this_max[index]) {
                         this_max[index] = stof(word);
                     }
 
-                    if(stof(word) < this_min[index]){
+                    if (stof(word) < this_min[index]) {
                         this_min[index] = stof(word);
                     }
 
@@ -107,6 +107,7 @@ void *thread_store_data(void* args){
     glob_train_data.push_back(this_part);
     glob_max.push_back(this_max);
     glob_min.push_back(this_min);
+    size += this_part.size();
     pthread_mutex_unlock(&my_mutex);
     pthread_exit((void*)0);
 }
@@ -260,7 +261,7 @@ int main(int argc, char *argv[]) {
         pthread_join(threads[i], NULL);
     }
     auto end1 = std::chrono::high_resolution_clock::now();
-    
+
     //    cout<<"PARALLEL:\nall data reading and storing time: "<<(end1-begin1).count()<<endl;
 //    big_printak(glob_train_data);
 //    cout<<"\n";
@@ -268,9 +269,9 @@ int main(int argc, char *argv[]) {
 
     auto begin2 = std::chrono::high_resolution_clock::now();
     const int n_columns = glob_train_data.at(0).at(0).size();
-
     combined_min = (float*)malloc(n_columns * sizeof(float));
     combined_max = (float*)malloc(n_columns * sizeof(float));
+    cout<<"that\n";
     for (int i = 0; i < n_columns; ++i) {
         combined_min[i] = 100000;
         combined_max[i] = 0;
@@ -284,6 +285,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+    
 
 //    auto oonVasat = std::chrono::high_resolution_clock::now();
 
@@ -343,6 +345,6 @@ int main(int argc, char *argv[]) {
     cout << "\naccuracy is: " << accuracy << "%\n";
 
     pthread_mutex_destroy(&my_mutex);
-    
+
     return 0;
 }
