@@ -21,6 +21,78 @@ void printak(vector<vector<float>> in){
     }
 }
 
+class classification {
+public:
+    float compute_accuracy(int num_of_total_records, int num_of_well_estimated);
+
+    vector<int> classificate(vector<vector<float>> train, vector<vector<float>> weights);
+
+    int compute_num_of_well_estimated_prices(vector<int> price_classes, vector<float> train_price);
+
+private:
+    int maximum(float arr[], int n);
+
+    // int set_all_zero(int arr);
+};
+
+vector<int> classification::classificate(vector<vector<float>> train, vector<vector<float>> weights)
+{
+    vector<int> price_classes;
+    float each_price = 0;
+    int num_of_classes = weights.size();
+
+    float temp[num_of_classes];
+    int max = 0;
+    for (int i = 0; i < train.size(); i++)
+    {
+        for (int j = 0; j < num_of_classes; j++)
+        {
+            for (int k = 0; k < train.at(i).size() - 1; k++)
+            {
+                each_price += weights.at(j).at(k) * train.at(i).at(k);
+            }
+            temp[j] = each_price + weights.at(j).at(weights.at(j).size() - 1);
+            each_price = 0;
+        }
+//        for (int j = 0; j < num_of_classes ; ++j) {
+//            cout<<temp[j]<<"\t";
+//        }
+//        cout<<endl;
+        price_classes.push_back(maximum(temp,num_of_classes));
+        int size = sizeof(temp)/sizeof(temp[0]);
+        for (int i = 0; i < size; i++)
+        {
+            temp[i] = 0;
+        }
+    }
+    return price_classes;
+}
+
+int classification::maximum(float arr[], int n)
+{
+    int max = 0;
+
+    for (int i = 0; i < n; i++)
+    {
+        max = (arr[max] >= arr[i])? max : i;
+    }
+    return max;
+}
+
+int classification::compute_num_of_well_estimated_prices(vector<int> price_classes, vector<float> train_price)
+{
+    int num_of_same_amounts = 0;
+    for (int i = 0; i < price_classes.size(); i++)
+    {
+        num_of_same_amounts += (price_classes.at(i) == train_price.at(i))? 1 : 0;
+    }
+    return num_of_same_amounts;
+}
+
+float classification::compute_accuracy(int num_of_total_records, int num_of_well_estimated)
+{
+    return num_of_well_estimated / num_of_total_records;
+}
 
 void store_data(fstream *file_stream,vector<vector<float>> *data){
     string line, word, temp;
@@ -126,6 +198,36 @@ int main(int argc, char *argv[]) {
     auto end3 = std::chrono::high_resolution_clock::now();
     cout<<"time spent to normalize train data:"<< (end3 - begin3).count()<<"\n";
 
+    classification classify;
+    auto begin4 = std::chrono::high_resolution_clock::now();
+    vector<int> predictions = classify.classificate(train_data, weight_data);
+//    auto end4 = std::chrono::high_resolution_clock::now();
+//    cout<<"time spent to classify data:"<< (end4 - begin4).count()<<"\n";
+
+    //auto begin5 = std::chrono::high_resolution_clock::now();
+    vector<float> train_price;
+    int last_col_index = train_data[0].size()-1;
+    for(int i=0; i<train_data.size(); i++){
+        train_price.push_back(train_data[i][last_col_index]);
+    }
+    //auto end5 = std::chrono::high_resolution_clock::now();
+    //cout<<"time spent to copy the last column:"<< (end5 - begin5).count()<<"\n";
+
+    //auto begin6 = std::chrono::high_resolution_clock::now();
+    float good_pred = classify.compute_num_of_well_estimated_prices(predictions, train_price);
+    auto end4 = std::chrono::high_resolution_clock::now();
+    cout<<"time spent to classificate and compute number of accure predections:"<< (end4 - begin4).count()<<"\n";
+
+    cout<<"number of good_pred:"<< good_pred<<"\n";
+
+    float accuracy = good_pred/train_data.size();
+    float temp = int(accuracy*100);
+    //cout<<"temp:"<<temp<<endl;
+    accuracy = temp/100;
+    //auto begin8 = std::chrono::high_resolution_clock::now();
+    cout<<"ACCURACY:"<<accuracy<<"\n";
+    //auto end8 = std::chrono::high_resolution_clock::now();
+    //cout<<"time spent for cout:"<< (end8 - begin8).count()<<"\n";
     
     return 0;
 }
